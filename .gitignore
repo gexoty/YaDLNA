@@ -1,0 +1,10 @@
+/build/out/
+/dist/
+/local-deps/
+/backups/*
+!/backups/README.md
+__pycache__/
+*.pyc
+*.log
+.env
+.env.*

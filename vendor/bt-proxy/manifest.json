@@ -1,0 +1,15 @@
+{
+  "commit": "2eda824ae9aa357d37fbb0877b62f85c0abf19c7",
+  "files": {
+    "bt-proxy": {
+      "sha256": "7be9f99584e68b97a8b8f0bb372325911634d16031a9501a862f513fac070d27",
+      "size": 1180388,
+      "url": "https://raw.githubusercontent.com/Marker284/yandex-station-extended/2eda824ae9aa357d37fbb0877b62f85c0abf19c7/contrib/bin/bt-proxy"
+    },
+    "bus.conf": {
+      "sha256": "01c62d91d2fe4913a603d0a2421b44072d24f35df04f90d4ea3eba2219379e8e",
+      "size": 689,
+      "url": "https://raw.githubusercontent.com/Marker284/yandex-station-extended/2eda824ae9aa357d37fbb0877b62f85c0abf19c7/contrib/bt-proxy/bus.conf"
+    }
+  }
+}

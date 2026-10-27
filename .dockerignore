@@ -1,0 +1,9 @@
+.git
+build/out
+dist
+local-deps
+backups
+**/__pycache__
+*.log
+.env
+.env.*

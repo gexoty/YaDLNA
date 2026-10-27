@@ -1,0 +1,59 @@
+#!/bin/sh
+# Adaptation for the observed Mini 2 Bluetooth init scripts.
+# The proxy is from Marker284/yandex-station-extended; see THIRD_PARTY.md.
+D=/data/opt/btproxy
+R=/run/station-btproxy
+BUS=unix:path=/tmp/btbus/socket
+BT='S51bluetoothd S52bluealsa S53bluealsa-aplay S54default-bluez-agent'
+# PID plus kernel start time prevents acting on a recycled PID.
+record_pid() {
+    stamp=$(awk '{print $22}' "/proc/$2/stat" 2>/dev/null) || return 1
+    printf '%s %s\n' "$2" "$stamp" > "$1"
+}
+pid_alive() {
+    [ -r "$1" ] || return 1
+    read saved_pid saved_stamp < "$1"
+    [ -n "$saved_pid" ] && [ -n "$saved_stamp" ] || return 1
+    [ "$(awk '{print $22}' "/proc/$saved_pid/stat" 2>/dev/null)" = "$saved_stamp" ] && kill -0 "$saved_pid" 2>/dev/null
+}
+kill_saved() {
+    pid_alive "$1" && kill "$saved_pid" 2>/dev/null
+    return 0
+}
+start() {
+    [ -x "$D/bt-proxy" ] && [ -f "$D/bus.conf" ] || { echo 'bt-proxy files missing' >&2; return 1; }
+    [ ! -e /usr/share/dbus-1/system-services/org.bluez.service ] || { echo 'First back up and disable org.bluez.service as described in INSTALL.md' >&2; return 1; }
+    if pid_alive "$R/supervisor.pid"; then return 0; fi
+    for s in $BT; do [ -x "/etc/init.d/$s" ] || { echo "Missing $s" >&2; return 1; }; done
+    for s in S54default-bluez-agent S53bluealsa-aplay S52bluealsa S51bluetoothd; do "/etc/init.d/$s" stop; done
+    i=0
+    while pidof bluetoothd bluealsa bluealsa-aplay just-works-bluez-agent >/dev/null 2>&1; do
+        i=$((i+1)); [ "$i" -lt 50 ] || { echo 'Bluetooth daemons did not stop; aborting' >&2; return 1; }; usleep 100000
+    done
+    mkdir -p /tmp/btbus "$R"; chmod 700 /tmp/btbus "$R"
+    if [ ! -S /tmp/btbus/socket ]; then
+        /usr/bin/dbus-daemon --config-file="$D/bus.conf" --fork --print-pid=1 > "$R/bus.pid" || return 1
+    fi
+    for s in $BT; do DBUS_SYSTEM_BUS_ADDRESS="$BUS" "/etc/init.d/$s" start; sleep 1; done
+    (
+        trap 'trap - TERM INT; kill_saved "$R/child.pid"; wait; rm -f "$R/child.pid" "$R/supervisor.pid"; exit 0' TERM INT
+        export BT_PRIVATE_BUS="$BUS"
+        export BT_PROXY_ALIASES='StationDLNA=DLNA'
+        while :; do
+            echo 'Proxy stderr disabled to bound RAM usage; see child.pid and process list.' > "$R/proxy.log"
+            "$D/bt-proxy" > /dev/null 2>&1 &
+            child=$!; record_pid "$R/child.pid" "$child"; wait "$child"
+            rm -f "$R/child.pid"; sleep 3
+        done
+    ) < /dev/null > /dev/null 2>&1 &
+    record_pid "$R/supervisor.pid" "$!"
+}
+stop() {
+    kill_saved "$R/supervisor.pid"
+}
+case "${1:-}" in
+    start) start ;;
+    stop) stop ;;
+    restart) stop; sleep 3; start ;;
+    *) echo "Usage: $0 start|stop|restart"; exit 2 ;;
+esac

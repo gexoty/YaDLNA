@@ -1,0 +1,53 @@
+#!/bin/sh
+# Station DLNA service. Only this receiver is stopped/restarted.
+D=/data/opt/station-dlna
+R=/run/station-dlna
+# PID plus kernel start time prevents acting on a recycled PID.
+record_pid() {
+    stamp=$(awk '{print $22}' "/proc/$2/stat" 2>/dev/null) || return 1
+    printf '%s %s\n' "$2" "$stamp" > "$1"
+}
+pid_alive() {
+    [ -r "$1" ] || return 1
+    read saved_pid saved_stamp < "$1"
+    [ -n "$saved_pid" ] && [ -n "$saved_stamp" ] || return 1
+    [ "$(awk '{print $22}' "/proc/$saved_pid/stat" 2>/dev/null)" = "$saved_stamp" ] && kill -0 "$saved_pid" 2>/dev/null
+}
+kill_saved() {
+    pid_alive "$1" && kill "$saved_pid" 2>/dev/null
+    return 0
+}
+start() {
+    [ -x "$D/bin/station-dlna" ] || { echo "Missing $D/bin/station-dlna" >&2; return 1; }
+    [ -S /tmp/btbus/socket ] || { echo 'Private Bluetooth bus is not running; start S55zbtproxy first' >&2; return 1; }
+    if pid_alive "$R/supervisor.pid"; then return 0; fi
+    mkdir -p "$R"; chmod 700 "$R"
+    (
+        trap 'trap - TERM INT; kill_saved "$R/child.pid"; wait; rm -f "$R/child.pid" "$R/supervisor.pid"; exit 0' TERM INT
+        export DBUS_SYSTEM_BUS_ADDRESS=unix:path=/tmp/btbus/socket
+        export LD_LIBRARY_PATH=/system/vendor/quasar/libs:/system/vendor/quasar:/lib:/usr/lib
+        export GST_PLUGIN_PATH=/system/vendor/quasar/libs
+        export GST_REGISTRY=/tmp/station-dlna-gst-registry.bin
+        export GST_REGISTRY_FORK=no
+        export HOME=/data/opt/home
+        while :; do
+            # Bounded RAM log; receiver intentionally does not log media URLs.
+            : > "$R/receiver.log"
+            "$D/bin/station-dlna" --interface wlan0 --name 'Yandex Mini 2 DLNA' >> "$R/receiver.log" 2>&1 &
+            child=$!; record_pid "$R/child.pid" "$child"
+            wait "$child"
+            rm -f "$R/child.pid"
+            sleep 5
+        done
+    ) < /dev/null > /dev/null 2>&1 &
+    record_pid "$R/supervisor.pid" "$!"
+}
+stop() {
+    kill_saved "$R/supervisor.pid"
+}
+case "${1:-}" in
+    start) start ;;
+    stop) stop ;;
+    restart) stop; sleep 2; start ;;
+    *) echo "Usage: $0 start|stop|restart"; exit 2 ;;
+esac

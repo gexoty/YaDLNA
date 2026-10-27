@@ -1,0 +1,7 @@
+{
+  "version": "0.1.1",
+  "file": "station-dlna-0.1.1-armhf",
+  "size": 322128,
+  "sha256": "17bc84eaf317b8dedca9db763e8c629e8215a1914b510a61d6915f8e1b427fca",
+  "target": "Mini 2, ARMv7 hardfloat, glibc >= 2.28"
+}

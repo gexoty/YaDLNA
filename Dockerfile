@@ -1,0 +1,3 @@
+FROM debian:buster@sha256:58ce6f1271ae1c8a2006ff7d3e54e9874d839f573d8009c20154ad0f2fb0a225
+RUN printf 'deb http://archive.debian.org/debian buster main\ndeb http://archive.debian.org/debian-security buster/updates main\n' > /etc/apt/sources.list && dpkg --add-architecture armhf && apt-get update && apt-get install -y --no-install-recommends crossbuild-essential-armhf pkg-config libdbus-1-dev:armhf libexpat1-dev:armhf libasound2-dev:armhf libgstreamer1.0-dev:armhf gcc libdbus-1-dev:amd64 libexpat1-dev:amd64 libasound2-dev:amd64 libgstreamer1.0-dev:amd64 dbus python3 ca-certificates && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
